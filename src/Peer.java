@@ -3,11 +3,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.*;
 
-public class Peer {
+public class Peer{
     private static int PEER_PORT = 1234;
     private final static String PEER_IP;
     private static final int BUFFER_SIZE = 1024;
-    private static final String BROADCAST_IP = "192.168.1.46";
+    private static final String BROADCAST_IP = "192.168.147.208";
+    private static GUI gui;
 
     static {
         try {
@@ -18,6 +19,7 @@ public class Peer {
     }
 
     public static void main(String[] args) throws IOException {
+
         byte[] buffer = new byte[BUFFER_SIZE];
         DatagramSocket socket = new DatagramSocket(PEER_PORT);
         socket.setBroadcast(true);
@@ -31,7 +33,7 @@ public class Peer {
                 try {
                     socket.receive(input_packet);
                     String received = new String(input_packet.getData(), 0, input_packet.getLength());
-                    System.out.println(received);
+                    gui.addText(received);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -60,8 +62,9 @@ public class Peer {
             }
         });
 
+        gui = new GUI();
+
         input_thread.start();
         output_thread.start();
     }
-
 }
