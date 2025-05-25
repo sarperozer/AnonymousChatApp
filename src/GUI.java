@@ -20,6 +20,9 @@ public class GUI implements ActionListener {
     private JPanel input_panel;
     private JLabel input_label;
     private JTextField input_field;
+    private String input_message;
+    private JSplitPane bottom_panel;
+    private JTextArea active_users;
 
 
     GUI(){
@@ -54,22 +57,15 @@ public class GUI implements ActionListener {
         menu_bar.add(help_menu);
 
         frame.setJMenuBar(menu_bar);
-
-        chat = new JTextArea();
-        chat.setEditable(false);
-        chat.setSize(450,550);
-
-        //JScrollPane scroll = new JScrollPane(chat, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-
+        
         app_name = new JLabel("Anonymous Chat App");
         app_name.setFont(new Font("",Font.BOLD,24));
 
         main_panel = new JPanel();
-        main_panel.setLayout(new BoxLayout(main_panel, BoxLayout.Y_AXIS));
+        main_panel.setLayout(new BorderLayout());
 
         title_panel = new JPanel();
         title_panel.add(app_name);
-        main_panel.add(title_panel);
 
         input_panel = new JPanel();
         input_label = new JLabel("Enter a message:");
@@ -77,12 +73,39 @@ public class GUI implements ActionListener {
 
         input_field = new JTextField(40);
         input_field.setFont(new Font("",Font.PLAIN,18));
+        input_field.addActionListener(e -> {
+            input_message = input_field.getText();
+            addText(input_message + "\n");
+            input_field.setText("");
+        });
 
         input_panel.add(input_label);
         input_panel.add(input_field);
-        main_panel.add(input_panel);
 
-        main_panel.add(chat);
+        JPanel top_panel = new JPanel();
+        top_panel.setLayout(new BoxLayout(top_panel, BoxLayout.Y_AXIS));
+        top_panel.add(title_panel);
+        top_panel.add(input_panel);
+
+        chat = new JTextArea();
+        chat.setEditable(false);
+        chat.setFont(new Font("", Font.PLAIN, 18));
+
+        JScrollPane chat_scroll = new JScrollPane(chat);
+        chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+
+        active_users = new JTextArea("Sarper\nMehmet\nZeynep");
+        active_users.setEditable(false);
+        active_users.setFont(new Font("", Font.PLAIN, 18));
+
+        JScrollPane active_users_scroll = new JScrollPane(active_users);
+        active_users_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+
+        bottom_panel = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, chat_scroll, active_users_scroll);
+        bottom_panel.setResizeWeight(0.6);
+
+        main_panel.add(top_panel, BorderLayout.NORTH);
+        main_panel.add(bottom_panel, BorderLayout.CENTER);
 
         frame.setContentPane(main_panel);
         frame.setVisible(true);
