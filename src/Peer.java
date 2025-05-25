@@ -7,7 +7,7 @@ public class Peer{
     private static int PEER_PORT = 1234;
     private final static String PEER_IP;
     private static final int BUFFER_SIZE = 1024;
-    private static final String BROADCAST_IP = "192.168.147.208";
+    private static final String BROADCAST_IP = "192.168.1.46";
     private static GUI gui;
 
     static {
@@ -33,6 +33,7 @@ public class Peer{
                 try {
                     socket.receive(input_packet);
                     String received = new String(input_packet.getData(), 0, input_packet.getLength());
+                    received += "\n";
                     gui.addText(received);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -45,20 +46,23 @@ public class Peer{
 
         Thread output_thread = new Thread(()->{
             while(true){
-                String message = null;
-                try {
-                    message = userInput.readLine();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                String message = gui.getInput_message();
+
+                if(message != null) {
+                    byte[] sendData = message.getBytes();
+                    DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
+                    try {
+                        socket.send(sendPacket);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    gui.setInput_message(null);
                 }
 
-                byte[] sendData = message.getBytes();
-                DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                 try {
-                    socket.send(sendPacket);
-                } catch (IOException e) {
-                    e.printStackTrace();
-
+                    Thread.sleep(10); // Not working if deleted, thread runs too fast
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
             }
         });
