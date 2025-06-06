@@ -2,6 +2,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 public class GUI implements ActionListener {
 
@@ -25,9 +29,11 @@ public class GUI implements ActionListener {
     private JSplitPane bottom_panel;
     private JTextArea active_users;
     private JLabel active_users_label;
-    JPanel active_users_panel;
+    private JPanel active_users_panel;
+    private Peer peer;
 
-    GUI(){
+    GUI(Peer peer){
+        this.peer = peer;
         frame = new JFrame();
         frame.setSize(800,800);
         frame.setResizable(true);
@@ -73,11 +79,13 @@ public class GUI implements ActionListener {
         input_label = new JLabel("Enter a message:");
         input_label.setFont(new Font("", Font.PLAIN,24));
 
-        input_field = new JTextField(40);
-        input_field.setFont(new Font("",Font.PLAIN,18));
+        input_field = new JTextField(20);
+        input_field.setFont(new Font("",Font.PLAIN,16));
         input_field.addActionListener(e -> {
-            input_message = input_field.getText();
-            addText(input_message);
+            if (peer.getPrivate_key() != null && peer.getPublic_key() != null && peer.getNickname() != null)
+                input_message = "MSG " + peer.getNickname() + ": " + input_field.getText();
+            else
+                missingNicknameOrKeys();
             input_field.setText("");
         });
 
@@ -96,7 +104,7 @@ public class GUI implements ActionListener {
         JScrollPane chat_scroll = new JScrollPane(chat);
         chat_scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 
-        active_users = new JTextArea("Sarper\nMehmet\nZeynep");
+        active_users = new JTextArea();
         active_users.setEditable(false);
         active_users.setFont(new Font("", Font.PLAIN, 18));
 
@@ -130,13 +138,45 @@ public class GUI implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if(e.getSource() == about){
-            JOptionPane abt = new JOptionPane();
-            JOptionPane.showMessageDialog(null, "Name: Sarper Özer\nSchool Number: 20220702142");
+            JOptionPane.showMessageDialog(null, "Name: Sarper Özer\nSchool Number: 20220702142\nYour nickname: " + peer.getNickname());
+        }
+        if(e.getSource() == generate_keys && peer.getPublic_key() == null && peer.getPrivate_key() == null){
+            try {
+                KeyPairGenerator k = KeyPairGenerator.getInstance("RSA");
+                k.initialize(2048);
+                KeyPair p = k.generateKeyPair();
+
+                peer.setPublic_key(p.getPublic());
+                peer.setPrivate_key(p.getPrivate());
+
+                JOptionPane.showMessageDialog(null, "Keys generated");
+
+            } catch (NoSuchAlgorithmException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+        else if (e.getSource() == generate_keys && peer.getPublic_key() != null && peer.getPrivate_key() != null){
+            JOptionPane.showMessageDialog(null, "Keys already generated");
+        }
+        if(e.getSource() == connect){
+            peer.setNickname(JOptionPane.showInputDialog("Enter your nickname:"));
+            byte[] pk = peer.getPublic_key().getEncoded();
+            String pkString = Base64.getEncoder().encodeToString(pk);
+            input_message = "NCK " + peer.getNickname() + " " + pkString;
         }
     }
 
     public void addText (String s){
-        chat.append(s + "\n");
+        if (!chat.getText().contains(s))
+            chat.append(s + "\n");
     }
 
+    public void missingNicknameOrKeys(){
+        JOptionPane.showMessageDialog(null, "Keys or nickname missing!\nPlease create keys and enter your nickname.");
+    }
+
+    public void addNewUser(String nickname){
+        if(!active_users.getText().contains(nickname))
+            active_users.append(nickname);
+    }
 }
