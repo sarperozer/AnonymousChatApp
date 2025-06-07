@@ -27,6 +27,9 @@ public class Peer{
     private PublicKey public_key;
     private String nickname;
     private HashMap<String, PublicKey> activeUsers = new HashMap<>();
+    private HashMap<String, Integer> lastReceived = new HashMap<>();
+    private HashMap<String, String> fragmentedUserKeys = new HashMap<>();
+    private HashMap<String, String> fragmentedMessages = new HashMap<>();
 
     public Peer() throws Exception {
 
@@ -42,23 +45,74 @@ public class Peer{
                 try {
                     socket.receive(input_packet);
                     String received = new String(input_packet.getData(), 0, input_packet.getLength());
-                    System.out.println(received);
-                    if (received.substring(6,9).contentEquals("MSG"))
-                        gui.addText(received.substring(4));
-                    /*else if (received.substring(6,9).contentEquals("NCK")) {
-                        String[] arr = received.split(" ", 3);
-                        String n = arr[1];
-                        String pkString = arr[2];
+                    String[] parts = received.split(" ");
+                    String userID = parts[0];
+                    String fragmented = parts[1];
+                    String messageType = parts[2];
+                    String nick = parts[3];
+                    String message = "";
 
-                        byte[] keyBytes = Base64.getDecoder().decode(pkString);
+                    for(int i = 4; i < parts.length; i++){
+                         message += parts[i] + " ";
+                    }
+
+                    System.out.println(received);
+
+                    if (messageType.contentEquals("MSG") && fragmented.contentEquals("F")) { // Not fragmented message
+                        if (!fragmentedMessages.containsKey(nick)) {  // Single packet message
+                            gui.addText(nick + ": " + message);
+                        }
+                        else {                                        // Last packet of a fragmented message
+                            String oldMessage = fragmentedMessages.get(nick);
+                            String newMessage = oldMessage + message;
+
+                            gui.addText(nick + ": " + newMessage);
+                            fragmentedMessages.clear();
+                        }
+                    }
+                    else if (messageType.contentEquals("MSG") && fragmented.contentEquals("T")){ // Fragmented message
+                        if (!fragmentedMessages.containsKey(nick)) {  // First fragmented packet
+                            fragmentedMessages.put(nick, message);
+                        }
+                        else {                                        // Fragmented messages in between
+                            String oldMessage = fragmentedMessages.get(nick);
+                            String newMessage = oldMessage + message;
+                            fragmentedMessages.replace(nick, newMessage);
+                        }
+
+                    }
+                    else if (messageType.contentEquals("NCK") && !lastReceived.keySet().contains(nick)) { // First NCK packet
+                        fragmentedUserKeys.put(nick,message.substring(0,message.length()-1));
+                        lastReceived.put(nick, 0);
+                    }
+                    else if (messageType.contentEquals("NCK") && fragmented.contentEquals("T")) {  // NCK packets in between first and last
+                        String tempKey = fragmentedUserKeys.get(nick);
+                        String newKey = tempKey + message.substring(0,message.length()-1);
+                        fragmentedUserKeys.replace(nick,newKey);
+
+                        int last = lastReceived.get(nick);
+                        last++;
+                        lastReceived.replace(nick, last);
+                    }
+                    else if (messageType.contentEquals("NCK") && fragmented.contentEquals("F")) { // Last NCK packet
+                        String tempKey = fragmentedUserKeys.get(nick);
+                        String newKey = tempKey + message.substring(0,message.length()-1);
+                        fragmentedUserKeys.replace(nick,newKey);
+
+                        int last = lastReceived.get(nick);
+                        last++;
+                        lastReceived.replace(nick, last);
+
+                        byte[] keyBytes = Base64.getDecoder().decode(fragmentedUserKeys.get(nick));
                         X509EncodedKeySpec pkSpec = new X509EncodedKeySpec(keyBytes);
                         PublicKey pk = KeyFactory.getInstance("RSA").generatePublic(pkSpec);
 
-                        gui.addNewUser(n);
+                        activeUsers.put(nick, pk);
+                        gui.addNewUser(nick);
 
-                        activeUsers.put(n,pk);
-                    }*/
-                } catch (IOException e) {
+                        fragmentedUserKeys.clear(); // Clearing map for security
+                    }
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
@@ -104,7 +158,7 @@ public class Peer{
                         for(int i = 0; i < fragmentedMessages.size(); i++){
                             String m;
                             if(i != fragmentedMessages.size()-1)
-                                m = getPeerID() + lastSendPacketNumber + " T " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);  // if not last packet fragmented bit T
+                                m = getPeerID() + lastSendPacketNumber + " T " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);  // if not last packet, fragmented bit T
                             else
                                 m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
 

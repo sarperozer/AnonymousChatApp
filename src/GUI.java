@@ -189,6 +189,6 @@ public class GUI implements ActionListener {
 
     public void addNewUser(String nickname){
         if(!active_users.getText().contains(nickname))
-            active_users.append(nickname);
+            active_users.append(nickname + "\n");
     }
 }
