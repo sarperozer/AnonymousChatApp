@@ -6,6 +6,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Random;
 
 public class GUI implements ActionListener {
 
@@ -83,7 +84,7 @@ public class GUI implements ActionListener {
         input_field.setFont(new Font("",Font.PLAIN,16));
         input_field.addActionListener(e -> {
             if (peer.getPrivate_key() != null && peer.getPublic_key() != null && peer.getNickname() != null)
-                input_message = "MSG " + peer.getNickname() + ": " + input_field.getText();
+                input_message = "MSG " + input_field.getText();
             else
                 missingNicknameOrKeys();
             input_field.setText("");
@@ -143,7 +144,7 @@ public class GUI implements ActionListener {
         if(e.getSource() == generate_keys && peer.getPublic_key() == null && peer.getPrivate_key() == null){
             try {
                 KeyPairGenerator k = KeyPairGenerator.getInstance("RSA");
-                k.initialize(2048);
+                k.initialize(1024);
                 KeyPair p = k.generateKeyPair();
 
                 peer.setPublic_key(p.getPublic());
@@ -162,7 +163,14 @@ public class GUI implements ActionListener {
             peer.setNickname(JOptionPane.showInputDialog("Enter your nickname:"));
             byte[] pk = peer.getPublic_key().getEncoded();
             String pkString = Base64.getEncoder().encodeToString(pk);
-            input_message = "NCK " + peer.getNickname() + " " + pkString;
+            String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+            Random rnd = new Random();
+            char first = chars.charAt(rnd.nextInt(chars.length()));
+            char second = chars.charAt(rnd.nextInt(chars.length()));
+
+            peer.setPeerID(new StringBuilder().append(first).append(second).toString());
+            input_message = "NCK " + peer.getPublic_key().getEncoded();
         }
     }
 
