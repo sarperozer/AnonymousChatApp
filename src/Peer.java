@@ -20,7 +20,7 @@ public class Peer{
     private String peerID;
     private int lastSendPacketNumber = 0;
     private int PEER_PORT = 1234;
-    private InetAddress broadcastIP = getBroadcastIP();
+    private InetAddress broadcastIP;
     private static final int BUFFER_SIZE = 1024;
     private GUI gui;
     private PrivateKey private_key;
@@ -32,8 +32,7 @@ public class Peer{
     private HashMap<String, String> fragmentedMessages = new HashMap<>();
 
     public Peer() throws Exception {
-
-        getBroadcastIP();
+        broadcastIP = getBroadcastIP();
 
         byte[] buffer = new byte[BUFFER_SIZE];
         DatagramSocket socket = new DatagramSocket(PEER_PORT);
@@ -67,7 +66,7 @@ public class Peer{
                             String newMessage = oldMessage + message;
 
                             gui.addText(nick + ": " + newMessage);
-                            fragmentedMessages.clear();
+                            fragmentedMessages.clear();               // Clearing map for security
                         }
                     }
                     else if (messageType.contentEquals("MSG") && fragmented.contentEquals("T")){ // Fragmented message
@@ -290,5 +289,9 @@ public class Peer{
         String encryptedMessage = Base64.getEncoder().encodeToString(encryptedBytes);
 
         return encryptedMessage;
+    }
+
+    public GUI getGui() {
+        return gui;
     }
 }
