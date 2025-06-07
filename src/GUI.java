@@ -144,7 +144,7 @@ public class GUI implements ActionListener {
         if(e.getSource() == generate_keys && peer.getPublic_key() == null && peer.getPrivate_key() == null){
             try {
                 KeyPairGenerator k = KeyPairGenerator.getInstance("RSA");
-                k.initialize(1024);
+                k.initialize(2048);
                 KeyPair p = k.generateKeyPair();
 
                 peer.setPublic_key(p.getPublic());
@@ -159,7 +159,7 @@ public class GUI implements ActionListener {
         else if (e.getSource() == generate_keys && peer.getPublic_key() != null && peer.getPrivate_key() != null){
             JOptionPane.showMessageDialog(null, "Keys already generated");
         }
-        if(e.getSource() == connect){
+        if(e.getSource() == connect && peer.getPublic_key() != null){
             peer.setNickname(JOptionPane.showInputDialog("Enter your nickname:"));
             byte[] pk = peer.getPublic_key().getEncoded();
             String pkString = Base64.getEncoder().encodeToString(pk);
@@ -170,7 +170,11 @@ public class GUI implements ActionListener {
             char second = chars.charAt(rnd.nextInt(chars.length()));
 
             peer.setPeerID(new StringBuilder().append(first).append(second).toString());
-            input_message = "NCK " + peer.getPublic_key().getEncoded();
+            byte[] pKBytes = peer.getPublic_key().getEncoded();
+            input_message = "NCK " + Base64.getEncoder().encodeToString(pKBytes);
+        }
+        else if(e.getSource() == connect && peer.getPublic_key() == null){
+            JOptionPane.showMessageDialog(null, "Please first create keys!");
         }
     }
 
