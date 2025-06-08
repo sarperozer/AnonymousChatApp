@@ -7,6 +7,7 @@ import java.net.*;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.sql.SQLOutput;
 import java.util.*;
 import java.util.Base64;
 
@@ -64,6 +65,9 @@ public class Peer{
                         else {                                        // Last packet of a fragmented message
                             String oldMessage = fragmentedMessages.get(nick);
                             String newMessage = oldMessage + message;
+                            newMessage = newMessage.replaceAll("\\s+", "");
+
+                            newMessage = decryptMessage(newMessage);
 
                             gui.addText(nick + ": " + newMessage);
                             fragmentedMessages.clear();               // Clearing map for security
@@ -81,12 +85,12 @@ public class Peer{
 
                     }
                     else if (messageType.contentEquals("NCK") && !lastReceived.keySet().contains(nick)) { // First NCK packet
-                        fragmentedUserKeys.put(nick,message.substring(0,message.length()-1));
+                        fragmentedUserKeys.put(nick,message.replaceAll("\\s+", ""));
                         lastReceived.put(nick, 0);
                     }
                     else if (messageType.contentEquals("NCK") && fragmented.contentEquals("T")) {  // NCK packets in between first and last
                         String tempKey = fragmentedUserKeys.get(nick);
-                        String newKey = tempKey + message.substring(0,message.length()-1);
+                        String newKey = tempKey + message.replaceAll("\\s+", "");
                         fragmentedUserKeys.replace(nick,newKey);
 
                         int last = lastReceived.get(nick);
@@ -95,7 +99,7 @@ public class Peer{
                     }
                     else if (messageType.contentEquals("NCK") && fragmented.contentEquals("F")) { // Last NCK packet
                         String tempKey = fragmentedUserKeys.get(nick);
-                        String newKey = tempKey + message.substring(0,message.length()-1);
+                        String newKey = tempKey + message.replaceAll("\\s+", "");
                         fragmentedUserKeys.replace(nick,newKey);
 
                         int last = lastReceived.get(nick);
@@ -121,21 +125,32 @@ public class Peer{
         Thread output_thread = new Thread(()->{
             while(true){
                 String body = gui.getInput_message();
-                String encryptedMessage;
                 String prefix;
                 String msg;
+                String encryptedBody;
                 ArrayList<String> fragmentedMessages = new ArrayList<>();
 
                 if (body != null) {
                     body = body.substring(4);
                     String messageType = gui.getInput_message().substring(0,3);
                     prefix = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " ";
+
+                    if(messageType.contentEquals("MSG")) {
+                        try {
+                            encryptedBody = encrpytMessage(body);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                        body = encryptedBody;
+
+                        System.out.println(body + "in ecnrpty");
+                    }
+
                     msg = prefix + body;
 
-                    System.out.println(msg.getBytes().length + " ");
+                    System.out.println(msg.getBytes().length + "encrypted length");
 
                     if(msg.getBytes().length > chunkSize){
-                        System.out.println("entered if");
                         int maxMessageSize = chunkSize - prefix.getBytes().length; // Maximum message size without prefix
 
                         int numberOfFragments = (body.getBytes().length + maxMessageSize - 1) / maxMessageSize;  // How many fragments there will be
@@ -144,7 +159,6 @@ public class Peer{
                         System.out.println(numberOfFragments);
 
                         for(int i = 0; i < numberOfFragments; i++){
-                            System.out.println("entered for");
                             int start = i * maxMessageSize;
                             int end = Math.min(start + maxMessageSize, body.getBytes().length);
 
@@ -161,13 +175,6 @@ public class Peer{
                             else
                                 m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
 
-
-                            /*try {
-                                encryptedMessage = encrpytMessage(m);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }*/
-
                             byte[] sendData = m.getBytes();
                             DatagramPacket sendPacket = null;
                             sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
@@ -181,13 +188,10 @@ public class Peer{
                     }
                     else {
                         System.out.println("Single packet");
-                        /*try {
-                            encryptedMessage = encrpytMessage(msg);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }*/
+
                         byte[] sendData = msg.getBytes();
                         DatagramPacket sendPacket = null;
+                        System.out.println(sendData.length);
                         sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                         try {
                             socket.send(sendPacket);
@@ -283,12 +287,27 @@ public class Peer{
         cipher.init(Cipher.ENCRYPT_MODE, this.getPublic_key());
 
         byte[] plainBytes = msg.getBytes();
-        System.out.println(msg);
+        System.out.println(plainBytes.length);
 
         byte[] encryptedBytes = cipher.doFinal(plainBytes);
         String encryptedMessage = Base64.getEncoder().encodeToString(encryptedBytes);
 
         return encryptedMessage;
+    }
+
+    public String decryptMessage(String encryptedMessageB64) throws Exception {
+        // 1) Base64’ten şifreli bayt dizisini al
+        byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessageB64);
+
+        // 2) Cipher’ı DECRYPT_MODE ile, kendi private key’inizle başlatın
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+        cipher.init(Cipher.DECRYPT_MODE, this.getPrivate_key());
+
+        // 3) doFinal ile gerçek düz baytları elde edin
+        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+
+        // 4) Karakter setini UTF-8 kullanarak String’e çevirin
+        return new String(decryptedBytes);
     }
 
     public GUI getGui() {
