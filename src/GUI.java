@@ -173,6 +173,9 @@ public class GUI implements ActionListener {
             peer.setPeerID(new StringBuilder().append(first).append(second).toString());
             byte[] pKBytes = peer.getPublic_key().getEncoded();
             input_message = "NCK " + Base64.getEncoder().encodeToString(pKBytes);
+
+            Peer.getActiveUsers().put(peer.getNickname(), peer.getPublic_key());
+            addNewUser(peer.getNickname());
         }
         else if(e.getSource() == connect && peer.getPublic_key() == null){
             JOptionPane.showMessageDialog(null, "Please first create keys!");
