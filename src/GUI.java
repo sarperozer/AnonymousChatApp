@@ -49,20 +49,17 @@ public class GUI implements ActionListener {
 
         generate_keys = new JMenuItem("Generate Keys");
         connect = new JMenuItem("Connect");
-        disconnect = new JMenuItem("Disconnect");
         about = new JMenuItem("About");
         exit = new JMenuItem("Exit");
 
         about.addActionListener(this);
         generate_keys.addActionListener(this);
         connect.addActionListener(this);
-        disconnect.addActionListener(this);
         exit.addActionListener(this);
 
 
         file_menu.add(generate_keys);
         file_menu.add(connect);
-        file_menu.add(disconnect);
         file_menu.add(exit);
         help_menu.add(about);
 
@@ -179,15 +176,6 @@ public class GUI implements ActionListener {
         }
         else if(e.getSource() == connect && peer.getPublic_key() == null){
             JOptionPane.showMessageDialog(null, "Please first create keys!");
-        }
-        if(e.getSource() == disconnect){
-            peer.setNickname(null);
-            peer.setPrivate_key(null);
-            peer.setPublic_key(null);
-            peer.setLastSendPacketNumber(0);
-            peer.setPeerID(null);
-
-
         }
         if(e.getSource() == exit){
             System.exit(0);

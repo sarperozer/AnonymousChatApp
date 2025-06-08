@@ -31,7 +31,6 @@ public class Peer{
     private HashMap<String, Integer> lastReceived = new HashMap<>();
     private HashMap<String, String> fragmentedUserKeys = new HashMap<>();
     private HashMap<String, String> fragmentedMessages = new HashMap<>();
-
     public Peer() throws Exception {
         broadcastIP = getBroadcastIP();
 
@@ -73,7 +72,9 @@ public class Peer{
                                 newMessage = decryptMessage(newMessage);
                                 gui.addText(nick + ": " + newMessage);
                             }
-                            catch (Exception e){}
+                            catch (Exception e){
+                                System.out.println("Can't decrpyt");
+                            }
                             finally {
                                 fragmentedMessages.clear();  // Clearing map for security
                             }
@@ -116,9 +117,11 @@ public class Peer{
                         X509EncodedKeySpec pkSpec = new X509EncodedKeySpec(keyBytes);
                         PublicKey pk = KeyFactory.getInstance("RSA").generatePublic(pkSpec);
 
-                        activeUsers.put(nick, pk);
-                        gui.addNewUser(nick);
+                        if(!activeUsers.containsKey(nick)) {
+                            activeUsers.put(nick, pk);
+                            gui.addNewUser(nick);
 
+                        }
                         fragmentedUserKeys.clear(); // Clearing map for security
                     }
                 } catch (Exception e) {
