@@ -67,7 +67,10 @@ public class Peer{
                             String newMessage = oldMessage + message;
                             newMessage = newMessage.replaceAll("\\s+", "");
 
-                            newMessage = decryptMessage(newMessage);
+                            try{
+                                newMessage = decryptMessage(newMessage);
+                            }
+                            catch (Exception e){}
 
                             gui.addText(nick + ": " + newMessage);
                             fragmentedMessages.clear();               // Clearing map for security
@@ -136,71 +139,127 @@ public class Peer{
                     prefix = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " ";
 
                     if(messageType.contentEquals("MSG")) {
-                        try {
-                            encryptedBody = encrpytMessage(body);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
+                        for(PublicKey p: activeUsers.values()) {
+                            try {
+                                encryptedBody = encrpytMessage(body, p);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            msg = prefix + encryptedBody;
+
+                            System.out.println(msg.getBytes().length + "encrypted length");
+
+                            if (msg.getBytes().length > chunkSize) {
+                                int maxMessageSize = chunkSize - prefix.getBytes().length; // Maximum message size without prefix
+
+                                int numberOfFragments = (body.getBytes().length + maxMessageSize - 1) / maxMessageSize;  // How many fragments there will be
+
+                                System.out.println(body.getBytes().length + " " + maxMessageSize);
+                                System.out.println(numberOfFragments);
+
+                                for (int i = 0; i < numberOfFragments; i++) {
+                                    int start = i * maxMessageSize;
+                                    int end = Math.min(start + maxMessageSize, body.getBytes().length);
+
+                                    byte[] part = Arrays.copyOfRange(body.getBytes(), start, end);
+                                    fragmentedMessages.add(new String(part));
+                                }
+                            }
+
+                            if (!fragmentedMessages.isEmpty()) {
+                                for (int i = 0; i < fragmentedMessages.size(); i++) {
+                                    String m;
+                                    if (i != fragmentedMessages.size() - 1)
+                                        m = getPeerID() + lastSendPacketNumber + " T " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);  // if not last packet, fragmented bit T
+                                    else
+                                        m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
+
+                                    byte[] sendData = m.getBytes();
+                                    DatagramPacket sendPacket = null;
+                                    sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
+                                    try {
+                                        socket.send(sendPacket);
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                    lastSendPacketNumber++;
+                                }
+                            } else {
+                                System.out.println("Single packet");
+
+                                byte[] sendData = msg.getBytes();
+                                DatagramPacket sendPacket = null;
+                                System.out.println(sendData.length);
+                                sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
+                                try {
+                                    socket.send(sendPacket);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            gui.setInput_message(null);
+                            lastSendPacketNumber++;
                         }
-                        body = encryptedBody;
-
-                        System.out.println(body + "in ecnrpty");
+                        fragmentedMessages.clear();
                     }
+                    else if(messageType.contentEquals("NCK")){
+                        msg = prefix + body;
 
-                    msg = prefix + body;
+                        System.out.println(msg.getBytes().length + "encrypted length");
 
-                    System.out.println(msg.getBytes().length + "encrypted length");
+                        if(msg.getBytes().length > chunkSize){
+                            int maxMessageSize = chunkSize - prefix.getBytes().length; // Maximum message size without prefix
 
-                    if(msg.getBytes().length > chunkSize){
-                        int maxMessageSize = chunkSize - prefix.getBytes().length; // Maximum message size without prefix
+                            int numberOfFragments = (body.getBytes().length + maxMessageSize - 1) / maxMessageSize;  // How many fragments there will be
 
-                        int numberOfFragments = (body.getBytes().length + maxMessageSize - 1) / maxMessageSize;  // How many fragments there will be
+                            System.out.println(body.getBytes().length + " " + maxMessageSize);
+                            System.out.println(numberOfFragments);
 
-                        System.out.println(body.getBytes().length + " " + maxMessageSize);
-                        System.out.println(numberOfFragments);
+                            for(int i = 0; i < numberOfFragments; i++){
+                                int start = i * maxMessageSize;
+                                int end = Math.min(start + maxMessageSize, body.getBytes().length);
 
-                        for(int i = 0; i < numberOfFragments; i++){
-                            int start = i * maxMessageSize;
-                            int end = Math.min(start + maxMessageSize, body.getBytes().length);
-
-                            byte[] part = Arrays.copyOfRange(body.getBytes(), start, end);
-                            fragmentedMessages.add(new String(part));
+                                byte[] part = Arrays.copyOfRange(body.getBytes(), start, end);
+                                fragmentedMessages.add(new String(part));
+                            }
                         }
-                    }
 
-                    if(!fragmentedMessages.isEmpty()){
-                        for(int i = 0; i < fragmentedMessages.size(); i++){
-                            String m;
-                            if(i != fragmentedMessages.size()-1)
-                                m = getPeerID() + lastSendPacketNumber + " T " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);  // if not last packet, fragmented bit T
-                            else
-                                m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
+                        if(!fragmentedMessages.isEmpty()){
+                            for(int i = 0; i < fragmentedMessages.size(); i++){
+                                String m;
+                                if(i != fragmentedMessages.size()-1)
+                                    m = getPeerID() + lastSendPacketNumber + " T " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);  // if not last packet, fragmented bit T
+                                else
+                                    m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
 
-                            byte[] sendData = m.getBytes();
+                                byte[] sendData = m.getBytes();
+                                DatagramPacket sendPacket = null;
+                                sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
+                                try {
+                                    socket.send(sendPacket);
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                                lastSendPacketNumber++;
+                            }
+                        }
+                        else {
+                            System.out.println("Single packet");
+
+                            byte[] sendData = msg.getBytes();
                             DatagramPacket sendPacket = null;
+                            System.out.println(sendData.length);
                             sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                             try {
                                 socket.send(sendPacket);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
-                            lastSendPacketNumber++;
                         }
+                        gui.setInput_message(null);
+                        lastSendPacketNumber++;
                     }
-                    else {
-                        System.out.println("Single packet");
-
-                        byte[] sendData = msg.getBytes();
-                        DatagramPacket sendPacket = null;
-                        System.out.println(sendData.length);
-                        sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
-                        try {
-                            socket.send(sendPacket);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    gui.setInput_message(null);
-                    lastSendPacketNumber++;
                 }
                 try {
                     Thread.sleep(10); // Not working if deleted, thread runs too fast
@@ -281,10 +340,10 @@ public class Peer{
         return null;
     }
 
-    public String encrpytMessage(String msg) throws Exception {
+    public String encrpytMessage(String msg, PublicKey p) throws Exception {
 
         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, this.getPublic_key());
+        cipher.init(Cipher.ENCRYPT_MODE, p);
 
         byte[] plainBytes = msg.getBytes();
         System.out.println(plainBytes.length);
@@ -296,21 +355,13 @@ public class Peer{
     }
 
     public String decryptMessage(String encryptedMessageB64) throws Exception {
-        // 1) Base64’ten şifreli bayt dizisini al
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedMessageB64);
 
-        // 2) Cipher’ı DECRYPT_MODE ile, kendi private key’inizle başlatın
         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.DECRYPT_MODE, this.getPrivate_key());
 
-        // 3) doFinal ile gerçek düz baytları elde edin
         byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
 
-        // 4) Karakter setini UTF-8 kullanarak String’e çevirin
         return new String(decryptedBytes);
-    }
-
-    public GUI getGui() {
-        return gui;
     }
 }
