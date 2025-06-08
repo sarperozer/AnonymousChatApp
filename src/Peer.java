@@ -2,14 +2,21 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.sql.SQLOutput;
 import java.util.*;
-import java.util.Base64;
 
 /*
     Protocol Struture <id fragmentedBit messageType nickname message>
@@ -31,6 +38,9 @@ public class Peer{
     private HashMap<String, Integer> lastReceived = new HashMap<>();
     private HashMap<String, String> fragmentedUserKeys = new HashMap<>();
     private HashMap<String, String> fragmentedMessages = new HashMap<>();
+    private String srcMAC = "AA:BB:CC:DD:EE:FF";
+    private String dstMAC = "FF:FF:FF:FF:FF:FF";
+    private String srcIP = "1.2.3.4";
     public Peer() throws Exception {
         broadcastIP = getBroadcastIP();
 
@@ -137,12 +147,25 @@ public class Peer{
                 String prefix;
                 String msg;
                 String encryptedBody;
+                String scriptPath = null;
                 ArrayList<String> fragmentedMessages = new ArrayList<>();
 
                 if (body != null) {
                     body = body.substring(4);
                     String messageType = gui.getInput_message().substring(0,3);
                     prefix = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " ";
+
+                    try (InputStream in = getClass().getResourceAsStream("/spoof.py")) {
+                            if (in == null) throw new FileNotFoundException("spoof_and_send.py not found");
+
+                            Path temp = Files.createTempFile("spoof-", ".py");
+                            Files.copy(in, temp, StandardCopyOption.REPLACE_EXISTING);
+                            temp.toFile().deleteOnExit();
+
+                            scriptPath = temp.toAbsolutePath().toString();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
 
                     if(messageType.contentEquals("MSG")) {
                         for(String n: activeUsers.keySet()) {
@@ -176,28 +199,41 @@ public class Peer{
                                     else
                                         m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
 
-                                    byte[] sendData = m.getBytes();
+                                        try {
+                                sendSpoofed("py", scriptPath, srcMAC, srcIP, dstMAC, broadcastIP.getHostAddress(), PEER_PORT, m);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            } 
+
+
+                                    /*byte[] sendData = m.getBytes();
                                     DatagramPacket sendPacket = null;
                                     sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                                     try {
                                         socket.send(sendPacket);
                                     } catch (IOException e) {
                                         e.printStackTrace();
-                                    }
+                                    }*/
                                     lastSendPacketNumber++;
                                 }
                                 fragmentedMessages.clear();
                             } else {
                                 System.out.println("Single packet");
 
-                                byte[] sendData = msg.getBytes();
+                                /*byte[] sendData = msg.getBytes();
                                 DatagramPacket sendPacket = null;
                                 sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                                 try {
                                     socket.send(sendPacket);
                                 } catch (IOException e) {
                                     e.printStackTrace();
-                                }
+                                }*/
+                                try {
+                                sendSpoofed("py", scriptPath, srcMAC, srcIP, dstMAC, broadcastIP.getHostAddress(), PEER_PORT, msg);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            } 
+
                             }
                             gui.setInput_message(null);
                             lastSendPacketNumber++;
@@ -228,28 +264,40 @@ public class Peer{
                                 else
                                     m = getPeerID() + lastSendPacketNumber + " F " + messageType + " " + getNickname() + " " + fragmentedMessages.get(i);
 
-                                byte[] sendData = m.getBytes();
+                                    try {
+                                sendSpoofed("py", scriptPath, srcMAC, srcIP, dstMAC, broadcastIP.getHostAddress(), PEER_PORT, m);
+                                    } catch (Exception e) {
+                                     e.printStackTrace();
+                                    } 
+
+                                /*byte[] sendData = m.getBytes();
                                 DatagramPacket sendPacket = null;
                                 sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                                 try {
                                     socket.send(sendPacket);
                                 } catch (IOException e) {
                                     e.printStackTrace();
-                                }
+                                }*/
                                 lastSendPacketNumber++;
                             }
                         }
                         else {
                             System.out.println("Single packet");
 
-                            byte[] sendData = msg.getBytes();
+                            try {
+                                sendSpoofed("py", scriptPath, srcMAC, srcIP, dstMAC, broadcastIP.getHostAddress(), PEER_PORT, msg);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            } 
+
+                            /*byte[] sendData = msg.getBytes();
                             DatagramPacket sendPacket = null;
                             sendPacket = new DatagramPacket(sendData, sendData.length, broadcastIP, PEER_PORT);
                             try {
                                 socket.send(sendPacket);
                             } catch (IOException e) {
                                 e.printStackTrace();
-                            }
+                            }*/
                         }
                         gui.setInput_message(null);
                         lastSendPacketNumber++;
@@ -360,5 +408,36 @@ public class Peer{
         System.out.println("After decryption: " + decryptedString);
 
         return decryptedString;
+    }
+
+    public static void sendSpoofed(
+        String pythonExe, 
+        String scriptPath,
+        String srcMac, 
+        String srcIp,
+        String dstMac, 
+        String dstIp, 
+        int port, 
+        String payload
+    ) throws IOException, InterruptedException {
+        List<String> runPython = List.of(
+            pythonExe, scriptPath,
+            srcMac, srcIp,
+            dstMac, dstIp,
+            String.valueOf(port), payload
+        );
+        ProcessBuilder pb = new ProcessBuilder(runPython).redirectErrorStream(true);
+        Process p = pb.start();
+
+        try (BufferedReader in = new BufferedReader(
+                 new InputStreamReader(p.getInputStream()))) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                System.out.println(line);
+            }
+        }
+        if (p.waitFor() != 0) {
+            throw new IOException("Scapy exited with code " + p.exitValue());
+        }
     }
 }
