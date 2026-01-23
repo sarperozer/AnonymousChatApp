@@ -1,8 +1,8 @@
 # Anonymous Chat Application
-This project is designed as a term project for Computer Networks course. It enables users to communicate on a secure chat. All the
-transferred data are encrypted with RSA encrpytion. Additionally, IP and MAC adresses are changed to enable fully anonimity.
+This project is designed as a term project for Computer Networks course. It enables users to communicate on a secure channel. All the
+transferred data are encrypted with RSA encrpytion. Additionally, IP and MAC adresses are changed to enable full anonymity.
 
-**Important Note**: This project is designed for devices working on the same local network aimed to learning and prototyping network anonimity. Changing IP and MAC adresses are not secure operations.
+**Important Note**: This project is designed for devices working on the same local network with an aim of learning and prototyping network anonymity. Changing IP and MAC adresses are not secure operations.
 
 ## Installation
 Clone or download the repository to your local machine.
@@ -43,9 +43,9 @@ java Main.java
 
 ### Message Transfer
 
-- **Protocol**: Custom application-layer protocol (see format below)
+- **Protocol**: Custom application-layer protocol
 - **Encryption**: RSA encryption on all packets
-- **Fragmentation**: Automatic splitting for messages >128 bytes
+- **Fragmentation**: Automatic splitting for packets >128 bytes
 - **Transport**: UDP-based communication
 - **Packet manipulation**: Scapy library for low-level operations
 
@@ -56,7 +56,7 @@ java Main.java
 | Field | Description |
 |-------|-------------|
 | id | Unique message id |
-| fragmentedBit | Indicates if message is fragmented (T -> fragmented, F -> not fragmented) |
+| fragmentedBit | Indicates if packet is fragmented (T -> fragmented, F -> not fragmented) |
 | messageType | Type of message (MSG = chat message, NCK = new user broadcasts their username and pk) |
 | nickname | Sender's nickname |
-| message | message content |
+| message | Message content |
