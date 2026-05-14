@@ -43,11 +43,11 @@ public class Peer{
     private String srcIP = "1.2.3.4";
     private static final String PY_EXE;
     static {
-        String os = System.getProperty("os.name").toLowerCase();
+        String os = System.getProperty("os.name").toLowerCase(); // Need os type to run the Python script
         if (os.contains("win")) {
-            PY_EXE = "py";            // Windows’ta py launcher
+            PY_EXE = "py";            
         } else {
-            PY_EXE = "python3";       // Linux/Mac’te genelde python3
+            PY_EXE = "python3";  
         }
     }
     public Peer() throws Exception {
